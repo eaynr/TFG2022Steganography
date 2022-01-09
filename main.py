@@ -81,7 +81,7 @@ def generator(self, n, filename):
     print('%s packets generated.' % (n))
 
 def build_icmp(ip):
-    pkt = IP(dst=ip) / ICMP() / "Missatge secret"
+    pkt = IP(dst=ip) / ICMP() / "Missatge molt molt molt molt secret"
 
     return pkt
 
@@ -106,60 +106,45 @@ if __name__ == '__main__':
         #arping2tex("192.168.1.0/24")
         ipDest = "192.168.1.200"
         paquet = build_icmp(ipDest)
-        prova3(paquet)
+        ls(paquet)
+        #prova3(paquet)
 
     elif function == 2:
         print("Rebre dades")
+
+        missatgeSecret = input('Quin missatge vols enviar ? ')
+        print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
+        n = len(missatgeSecret)%8
+        if n == 0:
+            n_segments = len(missatgeSecret)/8 + 1 #+1 per afegir el nonce
+        else:
+            n_segments = len(missatgeSecret) / 8 + 1 +1 #+1 per afegir el nonce
+
         print("-----------------ENCRIPT-----------------------")
-        plaintext = b'MissatgeSecret'
-        secret = b'123uabtfg2021123123uabtfg2021123'
+        plaintext = bytes(missatgeSecret, 'utf-8')
+        secret = b'123uabtfg2021123'
+        print("La contrasenya ocupa: " + str(len(secret)))
+
         cipher = Salsa20.new(key=secret)
-        print(cipher.nonce)
         msg = cipher.nonce + cipher.encrypt(plaintext)
-        print(msg[8:])
-        print(msg)
+
+        print("El missatge secret codificat ocupa: " + str(len(msg[8:])) + " bytes.")
+        print("Contingut a enviar: " + str(msg) + " i ocupa: " + str(len(msg)) + " bytes.")
 
         print("-----------------DECRIPT------------------------")
         msg_nonce = msg[:8]
         ciphertext = msg[8:]
         cipher2 = Salsa20.new(key=secret, nonce=msg_nonce)
         plaintext2 = cipher2.decrypt(ciphertext)
+        secretD = str(plaintext2, 'utf-8')
 
-        print(plaintext2)
-
-        print(len(msg))
-        print(len(plaintext))
+        print("He rebut: " + secretD + " que ocupa: " + str(len(secretD)) + " bytes.")
 
     elif function == 3:
         print("Canviar clau privada")
-        print("-----------------ENCRIPT-----------------------")
-        password = b"uabtfg2021"
-        salt = os.urandom(16)
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=390000)
-        clau = base64.urlsafe_b64encode(kdf.derive(password))
-
-        #clau = Fernet.generate_key()
-        f = Fernet(clau)
-        token = f.encrypt(b"SecretDestat")
-        print(token)
-
-        des = f.decrypt(token)
-        print(des)
-
-        print("-----------------DECRIPT------------------------")
-
-        password2 = b"uabtfg2021"
-        salt2 = os.urandom(16)
-        kdf2 = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt2, iterations=390000)
-        clau2 = base64.urlsafe_b64encode(kdf2.derive(password2))
-
-        fER2 = Fernet(clau2)
-        des2 = fER2.decrypt(token)
-        print(des2)
-
-
 
     elif function == 4:
+        arping2tex("192.168.1.0/24")
         print("A reveure")
         exit()
 
