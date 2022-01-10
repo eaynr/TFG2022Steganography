@@ -1,31 +1,9 @@
 # This is a sample Python script.
 from scapy.all import *
-import base64
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from Cryptodome.Cipher import Salsa20
 
 # Press Mayús+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-def prova0():
-    ip_layer = IP(dst="192.168.1.46")
-    icmp_layer = ICMP(seq=9999)
-    packet = ip_layer / icmp_layer
-    send(packet)
-
-
-def prova1():
-    a = sniff(count=10)
-    a.nsummary()
-
 
 def prova2():
     send(IP(dst="1.2.3.4") / ICMP())
@@ -81,9 +59,8 @@ def generator(self, n, filename):
     print('%s packets generated.' % (n))
 
 def build_icmp(ip):
-    pkt = IP(dst=ip) / ICMP() / "Missatge molt molt molt molt secret"
-
-    return pkt
+    paquet = IP(dst=ip) / ICMP(type=8, code=0)
+    return paquet
 
         # Press the green button in the gutter to run the script.
 
@@ -98,53 +75,108 @@ def menu():
     aux = input('Que vols fer ? ')
     return int(aux)
 
+def encriptar(missatgeSecret):
+
+    print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
+
+    print("-----------------ENCRIPT-----------------------")
+    missatgeSecretBytes = bytes(missatgeSecret, 'utf-8')
+    contrasenya = b'123uabtfg2021123'
+    print("La contrasenya ocupa: " + str(len(contrasenya)))
+
+    xifrador = Salsa20.new(key=contrasenya)
+    missatgeEnviar = xifrador.nonce + xifrador.encrypt(missatgeSecretBytes)
+
+    print("El missatge secret codificat ocupa: " + str(len(missatgeEnviar[8:])) + " bytes.")
+    print("Contingut a enviar: " + str(missatgeEnviar) + " i ocupa: " + str(len(missatgeEnviar)) + " bytes.")
+
+    return missatgeEnviar
+
+def desencriptar(missatgeRebut):
+    print("-----------------DECRIPT------------------------")
+    contrasenya = b'123uabtfg2021123'
+    soroll = missatgeRebut[:8]
+    missatgeXifrat = missatgeRebut[8:]
+    desxifrador = Salsa20.new(key=contrasenya, nonce=soroll)
+    missatgeDesxifrat = desxifrador.decrypt(missatgeXifrat)
+    missatgeDesxifratText = str(missatgeDesxifrat, 'utf-8')
+
+    print("He rebut: " + missatgeDesxifratText + " que ocupa: " + str(len(missatgeDesxifratText)) + " bytes.")
+
+    return missatgeDesxifratText
+
+def enviarMissatge(missatgeSecret):
+
+    ipDest = "192.168.1.200"
+
+    n = len(missatgeSecret) % 4
+    if n == 0:
+        n_iteracions = len(missatgeSecret) / 4  # +4 per afegir el nonce
+    else:
+        n_iteracions = ((4-n)+len(missatgeSecret)) / 4   # +4 per afegir el nonce
+
+    for i in range(int(n_iteracions)):
+        part1 = missatgeSecret[i*4:i*4+2]
+        part2 = missatgeSecret[i*4+2:i*4+4]
+        paquet = IP(dst=ipDest) / ICMP(id=(int.from_bytes(part1, byteorder='big')),
+                                       seq=int.from_bytes(part2, byteorder='big'))
+        paquet[ICMP].show()
+
+        #aux2 = int.from_bytes(aux1[0:2], byteorder='big')
+        #aux3 = aux2.to_bytes(length=2, byteorder='big')
+        send(paquet)
+
+    # prova3(paquet)
+
+def rebreMissatge():
+
+    def analitzar(paquet):
+        nonlocal missatgeSecret
+        if paquet[IP].src == "192.168.1.45":
+            part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+            part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
+
+            missatgeSecret += part1 + part2
+
+        # paquet[ICMP].id + paquet[ICMP].seq
+
+    missatgeSecret = b""
+    sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+
+    return missatgeSecret
+
 if __name__ == '__main__':
 
     function = menu()
     if function == 1:
         print("Enviar dades")
-        #arping2tex("192.168.1.0/24")
-        ipDest = "192.168.1.200"
-        paquet = build_icmp(ipDest)
-        ls(paquet)
-        #prova3(paquet)
+
+        msgSecret = input('Quin missatge vols enviar ? ')
+        missatgeCodificat = encriptar(msgSecret)
+        enviarMissatge(missatgeCodificat)
 
     elif function == 2:
         print("Rebre dades")
 
-        missatgeSecret = input('Quin missatge vols enviar ? ')
-        print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
-        n = len(missatgeSecret)%8
-        if n == 0:
-            n_segments = len(missatgeSecret)/8 + 1 #+1 per afegir el nonce
-        else:
-            n_segments = len(missatgeSecret) / 8 + 1 +1 #+1 per afegir el nonce
-
-        print("-----------------ENCRIPT-----------------------")
-        plaintext = bytes(missatgeSecret, 'utf-8')
-        secret = b'123uabtfg2021123'
-        print("La contrasenya ocupa: " + str(len(secret)))
-
-        cipher = Salsa20.new(key=secret)
-        msg = cipher.nonce + cipher.encrypt(plaintext)
-
-        print("El missatge secret codificat ocupa: " + str(len(msg[8:])) + " bytes.")
-        print("Contingut a enviar: " + str(msg) + " i ocupa: " + str(len(msg)) + " bytes.")
-
-        print("-----------------DECRIPT------------------------")
-        msg_nonce = msg[:8]
-        ciphertext = msg[8:]
-        cipher2 = Salsa20.new(key=secret, nonce=msg_nonce)
-        plaintext2 = cipher2.decrypt(ciphertext)
-        secretD = str(plaintext2, 'utf-8')
-
-        print("He rebut: " + secretD + " que ocupa: " + str(len(secretD)) + " bytes.")
+        missatgeRebutCodificat = rebreMissatge()
+        missatgeRebutDesodificat = desencriptar(missatgeRebutCodificat)
+        print("El missatge rebut es: " + missatgeRebutDesodificat)
 
     elif function == 3:
         print("Canviar clau privada")
 
+
+        #aux3 = aux1[0:4]
+        #for i in range(3):
+        #    print(aux1[i*4:i*4+2])
+        #    print(aux1[i*4+2:i*4+4])
+
+
     elif function == 4:
-        arping2tex("192.168.1.0/24")
+
+        ipDest = "192.168.1.200"
+        prova3(build_icmp(ipDest))
+        #arping2tex("192.168.1.0/24")
         print("A reveure")
         exit()
 
@@ -157,3 +189,4 @@ if __name__ == '__main__':
 
     #ip = IP(dst="www.google.es")
     #ip.show()
+
