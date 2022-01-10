@@ -79,21 +79,22 @@ def encriptar(missatgeSecret):
 
     print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
 
-    print("-----------------ENCRIPT-----------------------")
+    print("-----------------ENCRIPTACIO-----------------------")
     missatgeSecretBytes = bytes(missatgeSecret, 'utf-8')
     contrasenya = b'123uabtfg2021123'
-    print("La contrasenya ocupa: " + str(len(contrasenya)))
+    #print("La contrasenya ocupa: " + str(len(contrasenya)))
+    #
 
     xifrador = Salsa20.new(key=contrasenya)
     missatgeEnviar = xifrador.nonce + xifrador.encrypt(missatgeSecretBytes)
-
-    print("El missatge secret codificat ocupa: " + str(len(missatgeEnviar[8:])) + " bytes.")
+    #print("El missatge secret codificat ocupa: " + str(len(missatgeEnviar[8:])) + " bytes.")
     print("Contingut a enviar: " + str(missatgeEnviar) + " i ocupa: " + str(len(missatgeEnviar)) + " bytes.")
 
     return missatgeEnviar
 
 def desencriptar(missatgeRebut):
-    print("-----------------DECRIPT------------------------")
+
+    print("----------------DESENCRIPTACIO----------------------")
     contrasenya = b'123uabtfg2021123'
     soroll = missatgeRebut[:8]
     missatgeXifrat = missatgeRebut[8:]
@@ -101,7 +102,7 @@ def desencriptar(missatgeRebut):
     missatgeDesxifrat = desxifrador.decrypt(missatgeXifrat)
     missatgeDesxifratText = str(missatgeDesxifrat, 'utf-8')
 
-    print("He rebut: " + missatgeDesxifratText + " que ocupa: " + str(len(missatgeDesxifratText)) + " bytes.")
+    #print("He rebut: " + missatgeDesxifratText + " que ocupa: " + str(len(missatgeDesxifratText)) + " bytes.")
 
     return missatgeDesxifratText
 
@@ -120,29 +121,50 @@ def enviarMissatge(missatgeSecret):
         part2 = missatgeSecret[i*4+2:i*4+4]
         paquet = IP(dst=ipDest) / ICMP(id=(int.from_bytes(part1, byteorder='big')),
                                        seq=int.from_bytes(part2, byteorder='big'))
-        paquet[ICMP].show()
+        #print("")
+        #print("Paquet ICMP a enviar")
+        #print("")
+        #ls(paquet[ICMP])
+        send(paquet)
+        #print("Dos bytes del missatge: " + str(part1) + "en un enter: " + str(int.from_bytes(part1, byteorder='big')))
+        #print("Dos bytes del missatge: " + str(part2) + "en un enter: " + str(int.from_bytes(part2, byteorder='big')))
 
         #aux2 = int.from_bytes(aux1[0:2], byteorder='big')
         #aux3 = aux2.to_bytes(length=2, byteorder='big')
-        send(paquet)
-
-    # prova3(paquet)
 
 def rebreMissatge():
 
     def analitzar(paquet):
         nonlocal missatgeSecret
-        if paquet[IP].src == "192.168.1.45":
+
+        if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.200":
             part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
             part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
-
             missatgeSecret += part1 + part2
-
-        # paquet[ICMP].id + paquet[ICMP].seq
+            #missatgeSecret = missatgeSecret, paquet[ICMP].id, paquet[ICMP].seq
 
     missatgeSecret = b""
-    sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+    sniff(filter="icmp[0]=8", count=4, prn=analitzar)
 
+    print("El missatge rebut codificat es: " + str(missatgeSecret))
+    return missatgeSecret
+
+def rebreMissatgeOffline():
+
+    def analitzar(paquet):
+        nonlocal missatgeSecret
+
+        if paquet[Ether].type == 2048: #type = ETHERNET
+            if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.200" and paquet[IP].proto == 1:
+                part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+                part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
+                missatgeSecret += part1 + part2
+                #missatgeSecret = missatgeSecret, paquet[ICMP].id, paquet[ICMP].seq
+
+    missatgeSecret = b""
+    sniff(offline='Analitzar.pcap', prn=analitzar)
+
+    print("El missatge rebut codificat es: " + str(missatgeSecret))
     return missatgeSecret
 
 if __name__ == '__main__':
@@ -158,9 +180,9 @@ if __name__ == '__main__':
     elif function == 2:
         print("Rebre dades")
 
-        missatgeRebutCodificat = rebreMissatge()
+        missatgeRebutCodificat = rebreMissatgeOffline()
         missatgeRebutDesodificat = desencriptar(missatgeRebutCodificat)
-        print("El missatge rebut es: " + missatgeRebutDesodificat)
+        print("El missatge rebut descodificat es: " + missatgeRebutDesodificat + " i ocupa " + str(len(missatgeRebutDesodificat)) + " bytes")
 
     elif function == 3:
         print("Canviar clau privada")
