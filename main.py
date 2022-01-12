@@ -108,7 +108,7 @@ def desencriptar(missatgeRebut):
 
 def enviarMissatge(missatgeSecret):
 
-    ipDest = "192.168.1.200"
+    ipDest = "192.168.1.42"
 
     n = len(missatgeSecret) % 4
     if n == 0:
@@ -137,7 +137,7 @@ def rebreMissatge():
     def analitzar(paquet):
         nonlocal missatgeSecret
 
-        if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.200":
+        if paquet[IP].src == "192.168.1.42" and paquet[IP].dst == "192.168.1.45":
             part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
             part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
             missatgeSecret += part1 + part2
@@ -155,7 +155,7 @@ def rebreMissatgeOffline():
         nonlocal missatgeSecret
 
         if paquet[Ether].type == 2048: #type = ETHERNET
-            if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.200" and paquet[IP].proto == 1:
+            if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.42" and paquet[IP].proto == 1:
                 part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
                 part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
                 missatgeSecret += part1 + part2
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     elif function == 2:
         print("Rebre dades")
 
-        missatgeRebutCodificat = rebreMissatgeOffline()
+        missatgeRebutCodificat = rebreMissatge()
         missatgeRebutDesodificat = desencriptar(missatgeRebutCodificat)
         print("El missatge rebut descodificat es: " + missatgeRebutDesodificat + " i ocupa " + str(len(missatgeRebutDesodificat)) + " bytes")
 
