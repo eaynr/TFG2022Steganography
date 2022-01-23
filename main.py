@@ -107,9 +107,13 @@ def capçaleraOkey(cap, capPrev): #Comprovem si la SEQ rebuda es la SEQ esperada
     okey = True
 
     cap = format(cap, 'b')
+    if len(cap) < 8:
+        cap = "0" * (8 - len(cap)) + cap
     capPrev = format(capPrev, 'b')
+    if len(capPrev) < 8:
+        capPrev = "0" * (8 - len(capPrev)) + capPrev
 
-    if not(cap[-8:-5] == capPrev[-5:-2]):
+    if not (cap[-8:-5] == capPrev[-5:-2]):
         okey = False
 
     return okey
@@ -147,6 +151,12 @@ def encriptar(missatgeSecret):
     print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
 
     print("-----------------ENCRIPTACIO-----------------------")
+
+    multiple = (len(missatgeSecret)+8)%3
+    if not(multiple == 0):
+        missatgeSecret = missatgeSecret + " "*(3-multiple)
+    print(len(missatgeSecret))
+    print(missatgeSecret)
     missatgeSecretBytes = bytes(missatgeSecret, 'utf-8')
     contrasenya = b'123uabtfg2021123'
     #print("La contrasenya ocupa: " + str(len(contrasenya)))
@@ -169,6 +179,16 @@ def desencriptar(missatgeRebut):
     missatgeDesxifrat = desxifrador.decrypt(missatgeXifrat)
     missatgeDesxifratText = str(missatgeDesxifrat, 'utf-8')
 
+    espai = True #eliminar espais extres si es que existeixen.
+    index = -1
+    while espai:
+        if(missatgeDesxifratText[index]) == " ":
+            aux = list(missatgeDesxifratText)
+            del(aux[index])
+            missatgeDesxifratText = "".join(aux)
+        else:
+            espai = False
+
     #print("He rebut: " + missatgeDesxifratText + " que ocupa: " + str(len(missatgeDesxifratText)) + " bytes.")
 
     return missatgeDesxifratText
@@ -184,7 +204,7 @@ def enviarMissatgeControl(missatgeSecret):
         if paquet[IP].src == font and paquet[IP].dst == desti:  # POSAR DST ADEQUAT
             part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
 
-            capcalera = int.from_bytes(part1[0], byteorder='big')
+            capcalera = part1[0]
 
             if capçaleraOkey(capcaleraPrev, capcalera):
                 okey = True
@@ -217,10 +237,10 @@ def enviarMissatgeControl(missatgeSecret):
         part2 = missatgeSecret[i*3+1:i*3+3]
         paquet = IP(dst=ipDest) / ICMP(id=(int.from_bytes(part1, byteorder='big')),
                                        seq=int.from_bytes(part2, byteorder='big'))
-
         send(paquet)
 
         while not resposta:
+            print("Esperant resposta")
             resposta = sniff(filter="icmp[0]=0", count=1, prn=analitzar)
 
 def enviarMissatge(missatgeSecret):
@@ -259,35 +279,34 @@ def rebreMissatgeControl():
         desti = "192.168.1.42"
 
         if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
+            #print("Rebem 3 bytes")
             part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
             part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
-
-
-            capcalera = int.from_bytes(part1[0], byteorder='big')
-
-            if capcalera % 2 == 1:
-                final = True
+            capcalera = part1[0]
 
             if capçaleraOkey(capcalera, capcaleraPrev):
-                missatgeSecret += part1[1] + part2
+                missatgeSecret += part1[1].to_bytes(length=1, byteorder='big') + part2
                 capcalera = sumarEXP(capcalera)
                 capcaleraPrev = capcalera
+
             else:
                 capcalera = capcaleraPrev
 
-            resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1]
+            resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1].to_bytes(length=1, byteorder='big')
 
             paquetResposta = IP(dst=font) / ICMP(type=0, id=(int.from_bytes(resposta, byteorder='big')),
                                                  seq=paquet[ICMP].seq)
-
             send(paquetResposta)
+
+            if capcalera % 2 == 1:
+                final = True
+                print("Rebem el final")
 
     missatgeSecret = b""
     final = False
-    capcaleraPrev = 4
+    capcaleraPrev = 0
     while not final:
         sniff(filter="icmp[0]=8", count=1, prn=analitzar)
-
 
     print("El missatge rebut codificat es: " + str(missatgeSecret))
     return missatgeSecret
@@ -330,7 +349,7 @@ def rebreMissatgeOffline():
 if __name__ == '__main__':
 
     #ipsrc = propiaip() ##desmarcar per propia IP
-
+    #print(ipsrc)
 
     function = menu()
     if function == 1:
@@ -338,12 +357,12 @@ if __name__ == '__main__':
 
         msgSecret = input('Quin missatge vols enviar ? ')
         missatgeCodificat = encriptar(msgSecret)
-        enviarMissatge(missatgeCodificat)
+        enviarMissatgeControl(missatgeCodificat)
 
     elif function == 2:
         print("Rebre dades")
 
-        missatgeRebutCodificat = rebreMissatge()
+        missatgeRebutCodificat = rebreMissatgeControl()
         missatgeRebutDesodificat = desencriptar(missatgeRebutCodificat)
         print("El missatge rebut descodificat es: " + missatgeRebutDesodificat + " i ocupa " + str(len(missatgeRebutDesodificat)) + " bytes")
 
@@ -358,12 +377,12 @@ if __name__ == '__main__':
         #paquetResposta = IP(dst=ipDest) / ICMP(type=0)
         #send(paquetResposta)
         #ls(paquetResposta[ICMP])
-        n_iteracions = 3
-        for i in range(n_iteracions):
-            print (i)
+        #n_iteracions = 3
+        #for i in range(n_iteracions):
+        #    print (i)
 
-            if i == n_iteracions-1: #ultima iteració
-                print("Okey")
+        #    if i == n_iteracions-1: #ultima iteració
+        #        print("Okey")
 
         #informacio = extreureControl(0b01000101+64)
         #print(0b01000101+1)
@@ -374,7 +393,7 @@ if __name__ == '__main__':
 
         #informacio = treballenbits(1)
 
-        print(capçaleraOkey(38, 4))
+        #print(capçaleraOkey(38, 4))
 
         #print(informacio)
         #print(int.from_bytes(informacio, byteorder='big'))
