@@ -95,15 +95,21 @@ def treballenbits(iteracio):
     sumaexp = 4
     start = 2
 
-    if iteracio == 0:
-        base = base + start
-    else:
+    if iteracio > 7:
+        iteracio = iteracio % 8
+
         base = base + suma * iteracio
         base = base + sumaexp * iteracio
+    else:
+        if iteracio == 0:
+            base = base + start
+        else:
+            base = base + suma * iteracio
+            base = base + sumaexp * iteracio
 
     return base
 
-def capçaleraOkey(cap, capPrev): #Comprovem si la SEQ rebuda es la SEQ esperada
+def capcaleraOkey(cap, capPrev): #Comprovem si la SEQ rebuda es la SEQ esperada
     okey = True
 
     cap = format(cap, 'b')
@@ -123,8 +129,15 @@ def sumarSEQACK(aux):
     return aux + suma
 
 def sumarEXP(aux):
+    base = 0b11100000
     sumaexp = 4
-    return aux + sumaexp
+
+    if aux[-5:-2] == "111":
+        resultat = base
+    else:
+        resultat = aux + sumaexp
+
+    return resultat
 
 def establirFi(aux):
     end = 1
@@ -206,7 +219,7 @@ def enviarMissatgeControl(missatgeSecret):
 
             capcalera = part1[0]
 
-            if capçaleraOkey(capcaleraPrev, capcalera):
+            if capcaleraOkey(capcaleraPrev, capcalera):
                 okey = True
                 capcaleraPrev = capcalera
 
@@ -284,7 +297,7 @@ def rebreMissatgeControl():
             part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
             capcalera = part1[0]
 
-            if capçaleraOkey(capcalera, capcaleraPrev):
+            if capcaleraOkey(capcalera, capcaleraPrev):
                 missatgeSecret += part1[1].to_bytes(length=1, byteorder='big') + part2
                 capcalera = sumarEXP(capcalera)
                 capcaleraPrev = capcalera
