@@ -1,6 +1,7 @@
 # This is a sample Python script.
 from scapy.all import *
 from Cryptodome.Cipher import Salsa20
+import socket
 
 # Press Mayús+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
@@ -8,7 +9,6 @@ from Cryptodome.Cipher import Salsa20
 def prova2():
     send(IP(dst="1.2.3.4") / ICMP())
     sendp(Ether() / IP(dst="1.2.3.4", ttl=(1, 4)), iface="eth1")
-
 
 def prova3(pkt):
     ans, unans = sr(pkt)
@@ -62,7 +62,74 @@ def build_icmp(ip):
     paquet = IP(dst=ip) / ICMP(type=8, code=0)
     return paquet
 
-        # Press the green button in the gutter to run the script.
+def propiaip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect(("8.8.8.8", 80))
+    ip = s.getsockname()[0]
+    s.close()
+    return ip
+
+def treballenbits(iteracio):
+
+    #           ESTRUCTURA MISSATGE ICMP
+    #  0           8            16                        32
+    #  |    Type   |    Code	|        Checksum         |
+    #  |       Identifier	    |     Sequence Number     |
+
+    #           ESTRUCTURA MISSATGE SECRET DESSITJAT
+    #  0           8            16                        32
+    #  |    Type   |    Code	|        Checksum         |
+    #  | 1byte ctr | 1byte info | 1byte info | 1byte info |
+    #
+    #  Enviament    0           3            6       7     8
+    #  byte ctr --> | 3bits SEQ | 3bits #ACK | Start | End |
+    #  Recepcio     0           3            6       7     8
+    #  byte ctr --> | 3bits ACK | 3bits #SEQ | Start | End |
+
+    # mascaras:     -sumar 1 SEQ/ACK    --> ADD 00100000 - sumar 32
+    #               -sumar 1 #ACK/#SEQ  --> ADD 00000100 - sumar 4
+    #               -start a 1          --> ADD 00000010 - sumar 2
+    #               -end a 1            --> ADD 00000001 - sumar 1
+    base = 0b0
+    suma = 32
+    sumaexp = 4
+    start = 2
+
+    if iteracio == 0:
+        base = base + start
+    else:
+        base = base + suma * iteracio
+        base = base + sumaexp * iteracio
+
+    return base
+
+def capçaleraOkey(cap, capPrev): #Comprovem si la SEQ rebuda es la SEQ esperada
+    okey = True
+
+    cap = format(cap, 'b')
+    capPrev = format(capPrev, 'b')
+
+    if not(cap[-8:-5] == capPrev[-5:-2]):
+        okey = False
+
+    return okey
+
+def sumarSEQACK(aux):
+    suma = 0b00100000
+    return aux + suma
+
+def sumarEXP(aux):
+    sumaexp = 4
+    return aux + sumaexp
+
+def establirFi(aux):
+    end = 1
+    return aux + end
+
+def extreureControl(info):
+    info = format(info, 'b')
+    ctr = [info[-8:-5], info[-5:-2], info[-2], info[-1]]
+    return ctr
 
 def menu():
     print(" |         ESTEGANOGRAFIA        | ")
@@ -106,6 +173,56 @@ def desencriptar(missatgeRebut):
 
     return missatgeDesxifratText
 
+def enviarMissatgeControl(missatgeSecret):
+
+    def analitzar(paquet):
+        nonlocal capcaleraPrev
+        okey = False
+        font = "192.168.1.42" ############################
+        desti = "192.168.1.45"
+
+        if paquet[IP].src == font and paquet[IP].dst == desti:  # POSAR DST ADEQUAT
+            part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+
+            capcalera = int.from_bytes(part1[0], byteorder='big')
+
+            if capçaleraOkey(capcaleraPrev, capcalera):
+                okey = True
+                capcaleraPrev = capcalera
+
+        return okey
+
+    ipDest = "192.168.1.42" #################
+    capcaleraPrev = 2
+    n = len(missatgeSecret) % 3
+
+    resposta = False
+
+    if n == 0:
+        n_iteracions = len(missatgeSecret) / 3  # +4 per afegir el nonce
+    else:
+        n_iteracions = ((3-n)+len(missatgeSecret)) / 3   # +4 per afegir el nonce
+
+    for i in range(int(n_iteracions)):
+
+        if resposta:
+            resposta = False
+
+        part1 = treballenbits(i)
+
+        if i == n_iteracions-1: #ultima iteració
+            part1 = establirFi(part1)
+
+        part1 = part1.to_bytes(length=1, byteorder='big') + missatgeSecret[i*3:i*3+1]
+        part2 = missatgeSecret[i*3+1:i*3+3]
+        paquet = IP(dst=ipDest) / ICMP(id=(int.from_bytes(part1, byteorder='big')),
+                                       seq=int.from_bytes(part2, byteorder='big'))
+
+        send(paquet)
+
+        while not resposta:
+            resposta = sniff(filter="icmp[0]=0", count=1, prn=analitzar)
+
 def enviarMissatge(missatgeSecret):
 
     ipDest = "192.168.1.42"
@@ -131,6 +248,49 @@ def enviarMissatge(missatgeSecret):
 
         #aux2 = int.from_bytes(aux1[0:2], byteorder='big')
         #aux3 = aux2.to_bytes(length=2, byteorder='big')
+
+def rebreMissatgeControl():
+
+    def analitzar(paquet):
+        nonlocal missatgeSecret
+        nonlocal final
+        nonlocal capcaleraPrev
+        font = "192.168.1.45"
+        desti = "192.168.1.42"
+
+        if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
+            part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+            part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
+
+
+            capcalera = int.from_bytes(part1[0], byteorder='big')
+
+            if capcalera % 2 == 1:
+                final = True
+
+            if capçaleraOkey(capcalera, capcaleraPrev):
+                missatgeSecret += part1[1] + part2
+                capcalera = sumarEXP(capcalera)
+                capcaleraPrev = capcalera
+            else:
+                capcalera = capcaleraPrev
+
+            resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1]
+
+            paquetResposta = IP(dst=font) / ICMP(type=0, id=(int.from_bytes(resposta, byteorder='big')),
+                                                 seq=paquet[ICMP].seq)
+
+            send(paquetResposta)
+
+    missatgeSecret = b""
+    final = False
+    capcaleraPrev = 4
+    while not final:
+        sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+
+
+    print("El missatge rebut codificat es: " + str(missatgeSecret))
+    return missatgeSecret
 
 def rebreMissatge():
 
@@ -169,6 +329,9 @@ def rebreMissatgeOffline():
 
 if __name__ == '__main__':
 
+    #ipsrc = propiaip() ##desmarcar per propia IP
+
+
     function = menu()
     if function == 1:
         print("Enviar dades")
@@ -187,18 +350,34 @@ if __name__ == '__main__':
     elif function == 3:
         print("Canviar clau privada")
 
-
-        #aux3 = aux1[0:4]
-        #for i in range(3):
-        #    print(aux1[i*4:i*4+2])
-        #    print(aux1[i*4+2:i*4+4])
-
-
     elif function == 4:
 
-        ipDest = "192.168.1.200"
-        prova3(build_icmp(ipDest))
+        #ipDest = "192.168.1.200"
+        #prova3(build_icmp(ipDest))
         #arping2tex("192.168.1.0/24")
+        #paquetResposta = IP(dst=ipDest) / ICMP(type=0)
+        #send(paquetResposta)
+        #ls(paquetResposta[ICMP])
+        n_iteracions = 3
+        for i in range(n_iteracions):
+            print (i)
+
+            if i == n_iteracions-1: #ultima iteració
+                print("Okey")
+
+        #informacio = extreureControl(0b01000101+64)
+        #print(0b01000101+1)
+        #print(informacio[0])
+        #print(informacio[1])
+        #print(informacio[2])
+        #print(informacio[3])
+
+        #informacio = treballenbits(1)
+
+        print(capçaleraOkey(38, 4))
+
+        #print(informacio)
+        #print(int.from_bytes(informacio, byteorder='big'))
         print("A reveure")
         exit()
 
