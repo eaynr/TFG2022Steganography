@@ -5,29 +5,6 @@ import socket
 
 # Press Mayús+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-def prova2():
-    send(IP(dst="1.2.3.4") / ICMP())
-    sendp(Ether() / IP(dst="1.2.3.4", ttl=(1, 4)), iface="eth1")
-
-def prova3(pkt):
-    ans, unans = sr(pkt)
-    ans.nsummary()
-    unans.nsummary()
-
-    p = sr1(pkt / "XXXXXX")
-    p.show()
-
-def prova4(ipdesti):
-    p = sr1(IP(dst=ipdesti) / ICMP())
-    if p:
-        p.show()
-
-def arp_monitor_callback(pkt):
-    if ARP in pkt and pkt[ARP].op in (1, 2):  # who-has or is-at
-        return pkt.sprintf("%ARP.hwsrc% %ARP.psrc%")
-    # sniff(prn=arp_monitor_callback, filter="arp", store=0)
-
 def arping2tex(ipdest):
     if len(sys.argv) == 2:
         print("Usage: arping2tex <net>\n eg: arping2text 192.168.1.0/24")
@@ -46,21 +23,32 @@ def arping2tex(ipdest):
     print(r"\end{tabular}")
     #arping2tex("192.168.1.0/24")
 
-def generator(self, n, filename):
-
-    time = 0.00114108 * n + 0.157758
-    minutes = time / 60
-
-    print('Generating packets, it will take %s seconds, moreless (%s, minutes)' % (time, minutes))
-
-    pkgs = [IP(dst='10.0.0.1') / ICMP() for i in range(n)]
-    wrpcap(filename, pkgs)
-
-    print('%s packets generated.' % (n))
-
 def build_icmp(ip):
     paquet = IP(dst=ip) / ICMP(type=8, code=0)
     return paquet
+
+def testSnort():
+    ipDest="192.168.1.42"
+
+    #llegirme les icmp rules a veure que diuen
+
+    send(IP(dst=ipDest) / ICMP() / "testICMPpacket", count=100)
+    #a=IP(ttl=10, dst=ipDest)/ICMP(type=8, code=0)
+    #str(a)
+    #a.ttl=(10,19)
+    #a.show()
+    #send(a)
+#
+    #def generator(self, n, filename):
+    #    time = 0.00114108 * n + 0.157758
+    #    minutes = time / 60
+#
+    #    print('Generating packets, it will take %s seconds, moreless (%s, minutes)' % (time, minutes))
+#
+    #    pkgs = [IP(dst='10.0.0.1') / ICMP() for i in range(n)]
+    #    wrpcap(filename, pkgs)
+#
+    #    print('%s packets generated.' % (n))
 
 def propiaip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -71,41 +59,68 @@ def propiaip():
 
 def treballenbits(iteracio):
 
-    #           ESTRUCTURA MISSATGE ICMP
-    #  0           8            16                        32
-    #  |    Type   |    Code	|        Checksum         |
-    #  |       Identifier	    |     Sequence Number     |
+    #           ESTRUCTURA MISSATGE IP
+    #  0     4     8            16   19                   32
+    #  |  v  | IHL |    TOS 	|       Total length      |
+    #  |     Identification     |Flags|  Fragment offset  |
+    #  |    TTL    |  Protocol	|     Header Checksum     |
+    #  |                 Source  address                  |
+    #  |              Destination  address                |
+    #  | ...
 
-    #           ESTRUCTURA MISSATGE SECRET DESSITJAT
-    #  0           8            16                        32
-    #  |    Type   |    Code	|        Checksum         |
-    #  | 1byte ctr | 1byte info | 1byte info | 1byte info |
-    #
-    #  Enviament    0           3            6       7     8
-    #  byte ctr --> | 3bits SEQ | 3bits #ACK | Start | End |
+    #Aqui aprofitarem les capçaleras Flags i Fragment offset per
+    #enviar informació codificada i guanyar mes ample de banda.
+    # Aqui guanyem 2 bytes
+
+    #Aixo provoca modificar: Enviament i recepcio. Veure bits com va
+    # IP(flags=0bXXX, frag=0bXXXXXXXXXXXXX)
+    # int(paquetResposta[IP].flags)
+    # paquetResposta[IP].frag
+
+
+    #           ESTRUCTURA MISSATGE ICMP                            #                ESTRUCTURA MISSATGE IP
+    #  0            8            16                       32        #  0           8            16                        32
+    #  |    Type    |    Code	|        Checksum         |         #  |  V | SIZE |    TOS 	|        T. length        |
+    #  |       Identifier	    |     Sequence Number     |         #  |       Identifier	    | FLAGS |  Frag Offset    |
+                                                                    #  |    TTL    |  Protocol  |        Checksum         |
+    #           ESTRUCTURA MISSATGE SECRET DESSITJAT                #  |                       ...                        |
+    #  0            8            16                       32        #           ESTRUCTURA MISSATGE SECRET DESSITJAT
+    #  |    Type    |    Code	 |        Checksum        |         #  0           8            16                        32
+    #  | 1byte info | 1byte info |       2byte ctr        |         #  |  V | SIZE |    TOS 	|        T. length        |
+    #                                                               #  |      2 byte info	    |       2 byte info       |
+    #  Enviament    0           3            6       7     8        #  |    TTL    |  Protocol  |        Checksum         |
+    #  byte ctr --> | 3bits SEQ | 3bits #ACK | Start | End |        #  |                       ...                        |
     #  Recepcio     0           3            6       7     8
-    #  byte ctr --> | 3bits ACK | 3bits #SEQ | Start | End |
+    #  byte ctr --> | 3bits ACK | 3bits #SEQ | Start | End |        # potser toca reformular la capçalera.
+                                                                    #seria una opció bits inici i final que fos una cadena de caràcters en el missatge.
+                                                                    #mirar que tal es podria fer i com.
+    # NOVA MODIFICACIÓ
+    #  Enviament    0                     6       7     8           #  Enviament    0                     14     15    16
+    #  byte ctr --> |     6 bits SEQ      | Start | End |           #  byte ctr --> |     14 bits SEQ     | Start | End |
+    #  Recepcio     0                     6       7     8           #  Recepcio     0                     14     15    16
+    #  byte ctr --> |     6 bits ACK      | Start | End |           #  byte ctr --> |     14 bits ACK     | Start | End |
 
-    # mascaras:     -sumar 1 SEQ/ACK    --> ADD 00100000 - sumar 32
+    #Això provoca modificar: -Capçalera okey(), -sumar EXP(veure que es fa), -treball en bits(), .veure capcalera prev com va
+
+    #IP --> flags offset fraq
+
+    # mascaras:     -sumar 1 SEQ/ACK    --> ADD 00000100 - sumar 4
     #               -sumar 1 #ACK/#SEQ  --> ADD 00000100 - sumar 4
     #               -start a 1          --> ADD 00000010 - sumar 2
     #               -end a 1            --> ADD 00000001 - sumar 1
     base = 0b0
-    suma = 32
-    sumaexp = 4
+    suma = 4
     start = 2
 
-    if iteracio > 7:
+    if iteracio > 63: #2^6 màxim nombre d'elements de SEQ
         iteracio = iteracio % 8
-
         base = base + suma * iteracio
-        base = base + sumaexp * iteracio
+
     else:
         if iteracio == 0:
             base = base + start
         else:
             base = base + suma * iteracio
-            base = base + sumaexp * iteracio
 
     return base
 
@@ -119,20 +134,21 @@ def capcaleraOkey(cap, capPrev): #Comprovem si la SEQ rebuda es la SEQ esperada
     if len(capPrev) < 8:
         capPrev = "0" * (8 - len(capPrev)) + capPrev
 
-    if not (cap[-8:-5] == capPrev[-5:-2]):
+    if not (cap[-8:-2] == capPrev[-8:-2]):
         okey = False
 
     return okey
 
-def sumarSEQACK(aux):
+def sumarSEQACK(aux): #no es fa servir
     suma = 0b00100000
     return aux + suma
 
 def sumarEXP(aux):
-    base = 0b11100000
+    base = 224
     sumaexp = 4
 
-    if aux[-5:-2] == "111":
+    limit = format(aux, 'b')
+    if limit[-5:-2] == "111":
         resultat = base
     else:
         resultat = aux + sumaexp
@@ -143,10 +159,39 @@ def establirFi(aux):
     end = 1
     return aux + end
 
-def extreureControl(info):
+def extreureControl(info): #no es fa servir
     info = format(info, 'b')
     ctr = [info[-8:-5], info[-5:-2], info[-2], info[-1]]
     return ctr
+
+def extreuInformacioA(nombre):
+
+    base = 0b000
+
+    if nombre > 8191:
+        mascara = 57344 #0b1110000000000000
+        resposta = bin(nombre & mascara)
+        resposta = resposta[:-13]
+    else:
+        resposta = base
+
+    return resposta
+
+def extreuInformacioB(nombre):
+
+    base = 0b0000000000000
+    mascara = 8191 #0b0001111111111111
+
+    resposta = nombre & mascara
+
+    return bin(resposta)
+
+def unificaInformacio(numA, numB):
+
+    unificacio = int(numA, 2) << 13
+    unificacio = unificacio | int(numB, 2)
+
+    return unificacio
 
 def menu():
     print(" |         ESTEGANOGRAFIA        | ")
@@ -163,11 +208,13 @@ def encriptar(missatgeSecret):
 
     print("Vull enviar: " + missatgeSecret + " que ocupa: " + str(len(missatgeSecret)) + " bytes.")
 
+    bytesPerDatagrama = 5
+
     print("-----------------ENCRIPTACIO-----------------------")
 
-    multiple = (len(missatgeSecret)+8)%3
+    multiple = (len(missatgeSecret)+8) % bytesPerDatagrama
     if not(multiple == 0):
-        missatgeSecret = missatgeSecret + " "*(3-multiple)
+        missatgeSecret = missatgeSecret + " "*(bytesPerDatagrama-multiple)
     print(len(missatgeSecret))
     print(missatgeSecret)
     missatgeSecretBytes = bytes(missatgeSecret, 'utf-8')
@@ -206,12 +253,70 @@ def desencriptar(missatgeRebut):
 
     return missatgeDesxifratText
 
-def enviarMissatgeControl(missatgeSecret):
+def enviarMissatgeControlFinestra(missatgeSecret):
 
     def analitzar(paquet):
         nonlocal capcaleraPrev
         okey = False
         font = "192.168.1.42" ############################
+        desti = "192.168.1.45"
+
+        if paquet[IP].src == font and paquet[IP].dst == desti:  # POSAR DST ADEQUAT
+            part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+
+            capcalera = part1[0]
+
+            if capcaleraOkey(capcalera, capcaleraPrev):
+                okey = True
+                capcaleraPrev = capcalera
+
+        return okey
+
+    ipDest = "192.168.1.42" #################
+    capcaleraPrev = 2
+
+    bytesPerDatagrama = 5
+    n = len(missatgeSecret) % bytesPerDatagrama
+
+    finestra = 4
+
+    resposta = False
+
+    if n == 0: #fa falta ?
+        n_iteracions = len(missatgeSecret) / bytesPerDatagrama  # +4 per afegir el nonce
+    else:
+        n_iteracions = ((bytesPerDatagrama-n)+len(missatgeSecret)) / bytesPerDatagrama   # +4 per afegir el nonce
+
+    for i in range(int(n_iteracions)):
+
+        if resposta:
+            resposta = False
+
+        part1 = treballenbits(i)
+
+        if i == n_iteracions-1: #ultima iteració
+            part1 = establirFi(part1)
+
+        part1 = int.from_bytes((part1.to_bytes(length=1, byteorder='big') + missatgeSecret[i*bytesPerDatagrama:i*bytesPerDatagrama+1]), byteorder='big')
+        part2 = int.from_bytes(missatgeSecret[i*bytesPerDatagrama+1:i*bytesPerDatagrama+3], byteorder='big')
+        part34 = int.from_bytes(missatgeSecret[i*bytesPerDatagrama+3:i*bytesPerDatagrama+5], byteorder='big')
+        part3 = extreuInformacioA(part34)
+        part4 = extreuInformacioB(part34)
+        # IP(flags=0bXXX, frag=0bXXXXXXXXXXXXX)
+
+        paquet = IP(dst=ipDest, flags=part3, frag=part4) / ICMP(id=part1, seq=part2)
+        send(paquet)
+
+        while not resposta:
+            print("Esperant resposta")
+            resposta = sniff(filter="icmp[0]=0", count=1, prn=analitzar)
+
+def enviarMissatgeControl(missatgeSecret):
+
+    def analitzar(paquet):
+        nonlocal capcaleraPrev
+        okey = False
+        font = "192.168.1.42"
         desti = "192.168.1.45"
 
         if paquet[IP].src == font and paquet[IP].dst == desti:  # POSAR DST ADEQUAT
@@ -256,7 +361,7 @@ def enviarMissatgeControl(missatgeSecret):
             print("Esperant resposta")
             resposta = sniff(filter="icmp[0]=0", count=1, prn=analitzar)
 
-def enviarMissatge(missatgeSecret):
+def enviarMissatge(missatgeSecret): #no actualitzat
 
     ipDest = "192.168.1.42"
 
@@ -282,6 +387,52 @@ def enviarMissatge(missatgeSecret):
         #aux2 = int.from_bytes(aux1[0:2], byteorder='big')
         #aux3 = aux2.to_bytes(length=2, byteorder='big')
 
+def rebreMissatgeControlFinestra():
+
+    def analitzar(paquet):
+        nonlocal missatgeSecret
+        nonlocal final
+        nonlocal capcaleraPrev
+        font = "192.168.1.45"
+        desti = "192.168.1.42"
+
+        if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
+            #print("Rebem 3 bytes")
+            part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+            part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
+            capcalera = part1[0]
+            part3 = int(paquet[IP].flags)
+            part4 = paquet[IP].frag
+            part34 = (unificaInformacio(part3, part4)).to_bytes(length=2, byteorder='big')
+
+            if capcaleraOkey(capcalera, capcaleraPrev):
+                missatgeSecret += part1[1].to_bytes(length=1, byteorder='big') + part2 + part34
+                capcalera = sumarEXP(capcalera) ## aqui #####################
+                capcaleraPrev = capcalera
+
+            else:
+                capcalera = capcaleraPrev
+
+            resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1].to_bytes(length=1, byteorder='big')
+
+            paquetResposta = IP(dst=font) / ICMP(type=0, id=(int.from_bytes(resposta, byteorder='big')),
+                                                 seq=paquet[ICMP].seq)
+            send(paquetResposta)
+
+            if capcalera % 2 == 1:
+                final = True
+                print("Rebem el final")
+
+    missatgeSecret = b""
+    final = False
+    capcaleraPrev = 0
+
+    while not final:
+        sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+
+    print("El missatge rebut codificat es: " + str(missatgeSecret))
+    return missatgeSecret
+
 def rebreMissatgeControl():
 
     def analitzar(paquet):
@@ -306,9 +457,7 @@ def rebreMissatgeControl():
                 capcalera = capcaleraPrev
 
             resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1].to_bytes(length=1, byteorder='big')
-
-            paquetResposta = IP(dst=font) / ICMP(type=0, id=(int.from_bytes(resposta, byteorder='big')),
-                                                 seq=paquet[ICMP].seq)
+            paquetResposta = IP(dst=font) / ICMP(type=0, id=(int.from_bytes(resposta, byteorder='big')), seq=paquet[ICMP].seq)
             send(paquetResposta)
 
             if capcalera % 2 == 1:
@@ -324,7 +473,7 @@ def rebreMissatgeControl():
     print("El missatge rebut codificat es: " + str(missatgeSecret))
     return missatgeSecret
 
-def rebreMissatge():
+def rebreMissatge(): #no actualitzat
 
     def analitzar(paquet):
         nonlocal missatgeSecret
@@ -370,7 +519,8 @@ if __name__ == '__main__':
 
         msgSecret = input('Quin missatge vols enviar ? ')
         missatgeCodificat = encriptar(msgSecret)
-        enviarMissatgeControl(missatgeCodificat)
+        #enviarMissatgeControl(missatgeCodificat)
+        enviarMissatge(missatgeCodificat)
 
     elif function == 2:
         print("Rebre dades")
@@ -380,46 +530,47 @@ if __name__ == '__main__':
         print("El missatge rebut descodificat es: " + missatgeRebutDesodificat + " i ocupa " + str(len(missatgeRebutDesodificat)) + " bytes")
 
     elif function == 3:
-        print("Canviar clau privada")
+        print("Canviar parametres")
+
+        #Implementar canviar Clauprivada i IPs
 
     elif function == 4:
 
+        #IDEA
+        #Agafar d'un .txt les IPs src i desti
+        #En un .txt tenir un registre dels missatges enviats i rebuts
+        #Possibilitat de eliminar entrades del registre
+
         #ipDest = "192.168.1.200"
-        #prova3(build_icmp(ipDest))
-        #arping2tex("192.168.1.0/24")
-        #paquetResposta = IP(dst=ipDest) / ICMP(type=0)
-        #send(paquetResposta)
-        #ls(paquetResposta[ICMP])
+        #paquetResposta = IP(dst=ipDest, flags= 0b101, frag= 0b0000000000010) / ICMP()
+        #paquetRespostaP = IP(dst=ipDest, flags=16388) / ICMP()
+        #ls(paquetRespostaP[IP])
+        #print(int(paquetRespostaP[IP].flags))
+        #print(paquetRespostaP[IP].frag)
+
+        num = 45601
+        print(num)
+        parta = extreuInformacioA(num)
+        print(parta)
+        print(int(parta, 2))
+        partb = extreuInformacioB(num)
+        print(partb)
+        partab = unificaInformacio(parta, partb)
+        print(partab)
+        print(bin(partab))
+
         #n_iteracions = 3
         #for i in range(n_iteracions):
         #    print (i)
-
         #    if i == n_iteracions-1: #ultima iteració
         #        print("Okey")
-
         #informacio = extreureControl(0b01000101+64)
-        #print(0b01000101+1)
-        #print(informacio[0])
-        #print(informacio[1])
-        #print(informacio[2])
-        #print(informacio[3])
-
         #informacio = treballenbits(1)
-
         #print(capçaleraOkey(38, 4))
-
         #print(informacio)
         #print(int.from_bytes(informacio, byteorder='big'))
+
+        #testSnort()
+
         print("A reveure")
         exit()
-
-    #arping2tex("192.168.1.0/24")
-
-    #ipDest = "192.168.1.42"
-
-    #paquet = build_icmp(ipDest)
-    #prova3(paquet)
-
-    #ip = IP(dst="www.google.es")
-    #ip.show()
-
