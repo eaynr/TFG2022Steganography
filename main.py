@@ -1,10 +1,7 @@
-# This is a sample Python script.
 from scapy.all import *
 from Cryptodome.Cipher import Salsa20
 import socket
 
-# Press Mayús+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 def arping2tex(ipdest):
     if len(sys.argv) == 2:
         print("Usage: arping2tex <net>\n eg: arping2text 192.168.1.0/24")
@@ -218,7 +215,7 @@ def encriptar(missatgeSecret):
     print(len(missatgeSecret))
     print(missatgeSecret)
     missatgeSecretBytes = bytes(missatgeSecret, 'utf-8')
-    contrasenya = b'123uabtfg2021123'
+    contrasenya = b'123uabtfg2022123'
     #print("La contrasenya ocupa: " + str(len(contrasenya)))
     #
 
@@ -232,7 +229,7 @@ def encriptar(missatgeSecret):
 def desencriptar(missatgeRebut):
 
     print("----------------DESENCRIPTACIO----------------------")
-    contrasenya = b'123uabtfg2021123'
+    contrasenya = b'123uabtfg2022123'
     soroll = missatgeRebut[:8]
     missatgeXifrat = missatgeRebut[8:]
     desxifrador = Salsa20.new(key=contrasenya, nonce=soroll)
@@ -407,7 +404,7 @@ def rebreMissatgeControlFinestra():
 
             if capcaleraOkey(capcalera, capcaleraPrev):
                 missatgeSecret += part1[1].to_bytes(length=1, byteorder='big') + part2 + part34
-                capcalera = sumarEXP(capcalera) ## aqui #####################
+                capcalera = sumarEXP(capcalera)
                 capcaleraPrev = capcalera
 
             else:
