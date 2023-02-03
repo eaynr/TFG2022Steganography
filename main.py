@@ -237,13 +237,18 @@ def enviarMissatgeControlFinestra(missatgeSecret):
         nonlocal offset
         nonlocal finestra
         nonlocal finestraMax
+        nonlocal n_iteracions
         okey = False
         desti = "192.168.1.45"
 
         if paquet[IP].dst == desti:
             part1 = paquet[IP].id
             offset = part1 + 1
-            finestra = finestraMax
+            if(offset + finestraMax >= n_iteracions):
+                finestra = n_iteracions - offset
+            else:
+                finestra = finestraMax
+
             okey = True
 
         return okey
@@ -269,6 +274,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
     while (fi != True):
 
         i = 0
+        packetsToSend = []
         while finestra > 0 & ultima_it != True:
             part1 = treballenbits(i+offset)
 
@@ -284,22 +290,29 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 4:i * bytesPerDatagrama + 6], byteorder='big')
 
             paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
-            send(paquet)
+            packetsToSend.append(paquet)
+
+            #send(paquet)
+            #print("Paquet enviat")
             finestra = finestra - 1
             i = i + 1
 
+        sendp(packetsToSend)
+        #print("Paquets enviats")
+
         while finestra == 0: #& timeout
-            #print("Esperant resposta")
+            print("TimeIn")
             resposta = False
-            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar) #timeout
+            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar, timeout = 5) #timeout
+            print("TimeOut")
             if(resposta == False):
-                #resend
+                resposta = True #resend
 
 
 def rebreMissatgeControlFinestra():
 
     def analitzar(paquet):
-        nonlocal missatgeSecretç
+        nonlocal missatgeSecret
 
         nonlocal final
         nonlocal capcaleraPrev
