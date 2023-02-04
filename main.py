@@ -295,7 +295,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
         while finestra == 0: #& timeout
             print("TimeIn")
             resposta = False
-            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar, timeout = 5) #timeout
+            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar)#, timeout = 10) #timeout
             print("TimeOut")
             if(resposta == False):
                 resposta = True #resend
@@ -393,7 +393,7 @@ def rebreMissatgeControlFinestra():
         if len(paquetsDesordenats) > 0:
             checkDesordenats(missatgeSecret, capcaleraEsp, finestra, paquetsDesordenats)
         if (finestra == 0):
-            paquetResposta = IP(dst=font, id = capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
+            paquetResposta = IP(dst=font, id1=capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
             send(paquetResposta)
             send()
             finestra = 4
