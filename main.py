@@ -116,21 +116,13 @@ def treballenbits(iteracio):
 
     return base
 
-def sumarSEQACK(aux): #no es fa servir
-    suma = 0b00100000
-    return aux + suma
+def capcaleraOkey(cap, capEsp): #Comprovem si la SEQ rebuda es la SEQ esperada
+    okey = False
 
-def sumarEXP(aux):
-    base = 224
-    sumaexp = 4
+    if(cap == capEsp):
+        okey = False
 
-    limit = format(aux, 'b')
-    if limit[-5:-2] == "111":
-        resultat = base
-    else:
-        resultat = aux + sumaexp
-
-    return resultat
+    return okey
 
 def establirFi(aux):
     end = 32768
@@ -313,44 +305,98 @@ def rebreMissatgeControlFinestra():
 
     def analitzar(paquet):
         nonlocal missatgeSecret
-
+        nonlocal paquetsDesordenats
         nonlocal final
-        nonlocal capcaleraPrev
+        nonlocal capcaleraEsp
+        nonlocal finestra
+        nonlocal maxFinestra
+        nonlocal ultimPaquet
+
         font = "192.168.1.45"
         desti = "192.168.1.42"
 
         if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
             #print("Rebem 8 bytes")
-            part1 = paquet[IP].id
+            capcalera = paquet[IP].id
             part2 = int(paquet[IP].flags)
             part3 = paquet[IP].frag
             part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
             part4 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
             part5 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
 
-            if capcaleraOkey(capcalera, capcaleraPrev):
-                missatgeSecret += part23 + part4 + part5
-                capcalera = sumarEXP(capcalera)
-                capcaleraPrev = capcalera
-
-            else:
-                capcalera = capcaleraPrev
-
-            resposta = capcalera.to_bytes(length=1, byteorder='big') + part1[1].to_bytes(length=1, byteorder='big')
-
-            paquetResposta = IP(dst=font, id = resposta) / ICMP(type=0, id=paquet[ICMP].id, seq=paquet[ICMP].seq)
-            send(paquetResposta)
-
-            if capcalera % 2 == 1:
+            if capcalera >= 32768:
                 final = True
+                capcalera = capcalera - 32768
                 print("Rebem el final")
 
+            if capcaleraOkey(capcalera, capcaleraEsp):
+                missatgeSecret += part23 + part4 + part5
+                capcaleraEsp = capcaleraEsp + 1
+                finestra = finestra - 1
+            else:
+                paquetsDesordenats.append(paquet)
+
+            if (finestra == 0):
+                ultimPaquet = paquet
+
+            #paquetResposta = IP(dst=font, id = capcalera) / ICMP(type=0, id=paquet[ICMP].id, seq=paquet[ICMP].seq)
+            #send(paquetResposta)
+
+    def checkDesordenats():
+        nonlocal missatgeSecret
+        nonlocal paquetsDesordenats
+        nonlocal final
+        nonlocal capcaleraEsp
+        nonlocal finestra
+        nonlocal ultimPaquet
+
+        for paquet in paquetsDesordenats:
+            capcalera = paquet[IP].id
+
+            if capcalera >= 32768:
+                final = True
+                capcalera = capcalera - 32768
+                print("Rebem el final")
+
+            if capcaleraOkey(capcalera, capcaleraEsp):
+                part2 = int(paquet[IP].flags)
+                part3 = paquet[IP].frag
+                part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
+                part4 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
+                part5 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
+
+                missatgeSecret += part23 + part4 + part5
+                capcaleraEsp = capcaleraEsp + 1
+                finestra = finestra - 1
+
+                if (finestra == 0):
+                    ultimPaquet = paquet
+
+                paquetsDesordenats.remove(paquet)
+
+    ##################################################################
     missatgeSecret = b""
     final = False
-    capcaleraPrev = 0
+    capcaleraEsp = 0
+
+    maxFinestra = 4
+    finestra = maxFinestra
+    paquetsDesordenats = []
+
+    ultimPaquet = ""
+
+    font = "192.168.1.45"
+    desti = "192.168.1.42"
 
     while not final:
         sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+        if len(paquetsDesordenats) > 0:
+            checkDesordenats(missatgeSecret, capcaleraEsp, finestra, paquetsDesordenats)
+        if (finestra == 0):
+            paquetResposta = IP(dst=font, id = capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
+            send(paquetResposta)
+            send()
+            finestra = 4
 
     print("El missatge rebut codificat es: " + str(missatgeSecret))
     return missatgeSecret
