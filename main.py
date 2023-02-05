@@ -231,7 +231,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
         nonlocal finestraMax
         nonlocal n_iteracions
         okey = False
-        desti = "192.168.1.45"
+        desti = "192.168.1.49"
 
         if paquet[IP].dst == desti:
             part1 = paquet[IP].id
@@ -245,7 +245,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
 
         return okey
 
-    ipDest = "192.168.1.42" #################
+    ipDest = "192.168.1.49" #################
     capcaleraPrev = 2
 
     bytesPerDatagrama = 6
@@ -284,12 +284,12 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
             packetsToSend.append(paquet)
 
-            #send(paquet)
+            send(paquet)
             #print("Paquet enviat")
             finestra = finestra - 1
             i = i + 1
 
-        sendp(packetsToSend)
+        #sendp(packetsToSend, iface="eth0")
         #print("Paquets enviats")
 
         while finestra == 0: #& timeout
@@ -312,8 +312,8 @@ def rebreMissatgeControlFinestra():
         nonlocal maxFinestra
         nonlocal ultimPaquet
 
-        font = "192.168.1.45"
-        desti = "192.168.1.42"
+        font = "192.168.1.43"
+        desti = "192.168.1.49"
 
         if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
             #print("Rebem 8 bytes")
@@ -385,8 +385,8 @@ def rebreMissatgeControlFinestra():
 
     ultimPaquet = ""
 
-    font = "192.168.1.45"
-    desti = "192.168.1.42"
+    font = "192.168.1.43"
+    desti = "192.168.1.49"
 
     while not final:
         sniff(filter="icmp[0]=8", count=1, prn=analitzar)
