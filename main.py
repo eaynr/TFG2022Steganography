@@ -25,7 +25,7 @@ def build_icmp(ip):
     return paquet
 
 def testSnort():
-    ipDest="192.168.1.42"
+    ipDest="192.168.1.49"
 
     #llegirme les icmp rules a veure que diuen
 
@@ -157,8 +157,8 @@ def bytesToFrag(nombre):
 
 def flagsandfragToBytes(numA, numB):
 
-    unificacio = int(numA, 2) << 13
-    unificacio = unificacio | int(numB, 2)
+    unificacio = numA << 13
+    unificacio = unificacio | numB
 
     return unificacio
 
@@ -276,7 +276,11 @@ def enviarMissatgeControlFinestra(missatgeSecret):
 
             #part1
             part23 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama:i * bytesPerDatagrama + 2], byteorder='big')
-            part2 = int(bytesToFlags(part23), 2)
+            aux = bytesToFlags(part23)
+            if (aux != 0):
+                part2 = int(bytesToFlags(part23), 2)
+            else:
+                part2 = 0
             part3 = int(bytesToFrag(part23), 2)
             part4 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 2:i * bytesPerDatagrama + 4], byteorder='big')
             part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 4:i * bytesPerDatagrama + 6], byteorder='big')
@@ -284,12 +288,12 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
             packetsToSend.append(paquet)
 
-            send(paquet)
+            #send(paquet)
             #print("Paquet enviat")
             finestra = finestra - 1
             i = i + 1
 
-        #sendp(packetsToSend, iface="eth0")
+        sendp(packetsToSend)
         #print("Paquets enviats")
 
         while finestra == 0: #& timeout
@@ -391,7 +395,7 @@ def rebreMissatgeControlFinestra():
     while not final:
         sniff(filter="icmp[0]=8", count=1, prn=analitzar)
         if len(paquetsDesordenats) > 0:
-            checkDesordenats(missatgeSecret, capcaleraEsp, finestra, paquetsDesordenats)
+            checkDesordenats()
         if (finestra == 0):
             paquetResposta = IP(dst=font, id1=capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
             send(paquetResposta)
@@ -407,7 +411,7 @@ def rebreMissatgeOffline():
         nonlocal missatgeSecret
 
         if paquet[Ether].type == 2048: #type = ETHERNET
-            if paquet[IP].src == "192.168.1.45" and paquet[IP].dst == "192.168.1.42" and paquet[IP].proto == 1:
+            if paquet[IP].src == "192.168.1.43" and paquet[IP].dst == "192.168.1.49" and paquet[IP].proto == 1:
                 part1 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
                 part2 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
                 missatgeSecret += part1 + part2
@@ -458,16 +462,16 @@ if __name__ == '__main__':
         #print(int(paquetRespostaP[IP].flags))
         #print(paquetRespostaP[IP].frag)
 
-        num = 45601
-        print(num)
-        parta = bytesToFlags(num)
-        print(parta)
-        print(int(parta, 2))
-        partb = bytesToFrag(num)
-        print(partb)
-        partab = flagsandfragToBytes(parta, partb)
-        print(partab)
-        print(bin(partab))
+        #num = 45601
+        #print(num)
+       # parta = bytesToFlags(num)
+      #  print(parta)
+     #   print(int(parta, 2))
+    #    partb = bytesToFrag(num)
+   #     print(partb)
+  #      partab = flagsandfragToBytes(parta, partb)
+ #       print(partab)
+#        print(bin(partab))
 
         #n_iteracions = 3
         #for i in range(n_iteracions):
@@ -481,6 +485,9 @@ if __name__ == '__main__':
         #print(int.from_bytes(informacio, byteorder='big'))
 
         #testSnort()
+        # paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
+        #paquet = IP(dst="192.168.1.49", id=15, flags=0, frag=0) / ICMP()
+        #send(paquet)
 
         print("A reveure")
         exit()
