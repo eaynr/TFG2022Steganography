@@ -256,21 +256,18 @@ def desencriptarFoto(missatgeRebut):
     missatgeXifrat = missatgeRebut[8:]
     desxifrador = Salsa20.new(key=contrasenya, nonce=soroll)
     missatgeDesxifrat = desxifrador.decrypt(missatgeXifrat)
-    missatgeDesxifratText = str(missatgeDesxifrat, 'utf-8')
 
     espai = True #eliminar espais extres si es que existeixen.
     index = -1
     while espai:
-        if(missatgeDesxifratText[index]) == " ":
-            aux = list(missatgeDesxifratText)
-            del(aux[index])
-            missatgeDesxifratText = "".join(aux)
+        if missatgeDesxifrat[index] == 32:
+            missatgeDesxifrat = missatgeDesxifrat[:-1]
         else:
             espai = False
 
     #print("He rebut: " + missatgeDesxifratText + " que ocupa: " + str(len(missatgeDesxifratText)) + " bytes.")
 
-    return bytes(missatgeDesxifratText, 'utf-8')
+    return missatgeDesxifrat
 
 def enviarMissatgeControlFinestra(missatgeSecret):
 
@@ -456,7 +453,7 @@ def rebreMissatgeControlFinestra():
     desti = "192.168.1.49"
 
     while not final:
-        sniff(filter="icmp[0]=8", count=maxFinestra, prn=analitzar)
+        sniff(filter="icmp[0]=8", count=maxFinestra, prn=analitzar, timeout=5)
         if len(paquetsDesordenats) > 0:
             checkDesordenats()
         if (finestra == 0 or final):
