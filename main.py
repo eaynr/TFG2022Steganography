@@ -248,7 +248,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
     ipDest = "192.168.1.49" #################
     capcaleraPrev = 2
 
-    bytesPerDatagrama = 6
+    bytesPerDatagrama = 4
     n = len(missatgeSecret) % bytesPerDatagrama
 
     finestraMax = 4
@@ -273,19 +273,27 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             if i + offset == n_iteracions - 1:  # ultima iteració
                 part1 = establirFi(part1)
                 ultima_it = True
-
+            ###############
             #part1
-            part23 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama:i * bytesPerDatagrama + 2], byteorder='big')
-            aux = bytesToFlags(part23)
-            if (aux != 0):
-                part2 = int(bytesToFlags(part23), 2)
-            else:
-                part2 = 0
-            part3 = int(bytesToFrag(part23), 2)
-            part4 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 2:i * bytesPerDatagrama + 4], byteorder='big')
-            part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 4:i * bytesPerDatagrama + 6], byteorder='big')
+            #part23 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama:i * bytesPerDatagrama + 2], byteorder='big')
+            #aux = bytesToFlags(part23)
+            #if (aux != 0):
+            #    part2 = int(bytesToFlags(part23), 2)
+            #else:
+            #    part2 = 0
+            #part3 = int(bytesToFrag(part23), 2)
+            #part4 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 2:i * bytesPerDatagrama + 4], byteorder='big')
+            #part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 4:i * bytesPerDatagrama + 6], byteorder='big')
 
-            paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
+            #paquet = IP(dst=ipDest, id=part1, flags=part2, frag=part3) / ICMP(id=part4, seq=part5)
+            #################
+
+            # part1
+            part4 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama:i * bytesPerDatagrama + 2], byteorder='big')
+            part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 2:i * bytesPerDatagrama + 4], byteorder='big')
+
+            paquet = IP(dst=ipDest, id=part1) / ICMP(id=part4, seq=part5)
+
             packetsToSend.append(paquet)
 
             #send(paquet)
@@ -320,11 +328,11 @@ def rebreMissatgeControlFinestra():
         desti = "192.168.1.49"
 
         if paquet[IP].src == font and paquet[IP].dst == desti: #POSAR DST ADEQUAT
-            #print("Rebem 8 bytes")
+            #print("Rebem 6 bytes")
             capcalera = paquet[IP].id
-            part2 = int(paquet[IP].flags)
-            part3 = paquet[IP].frag
-            part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
+            #part2 = int(paquet[IP].flags)
+            #part3 = paquet[IP].frag
+            #part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
             part4 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
             part5 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
 
@@ -334,7 +342,8 @@ def rebreMissatgeControlFinestra():
                 print("Rebem el final")
 
             if capcaleraOkey(capcalera, capcaleraEsp):
-                missatgeSecret += part23 + part4 + part5
+                #missatgeSecret += part23 + part4 + part5
+                missatgeSecret += part4 + part5
                 capcaleraEsp = capcaleraEsp + 1
                 finestra = finestra - 1
             else:
@@ -363,13 +372,14 @@ def rebreMissatgeControlFinestra():
                 print("Rebem el final")
 
             if capcaleraOkey(capcalera, capcaleraEsp):
-                part2 = int(paquet[IP].flags)
-                part3 = paquet[IP].frag
-                part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
+                #part2 = int(paquet[IP].flags)
+                #part3 = paquet[IP].frag
+                #part23 = (flagsandfragToBytes(part2, part3)).to_bytes(length=2, byteorder='big')
                 part4 = paquet[ICMP].id.to_bytes(length=2, byteorder='big')
                 part5 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
 
-                missatgeSecret += part23 + part4 + part5
+                #missatgeSecret += part23 + part4 + part5
+                missatgeSecret += part4 + part5
                 capcaleraEsp = capcaleraEsp + 1
                 finestra = finestra - 1
 
@@ -397,9 +407,8 @@ def rebreMissatgeControlFinestra():
         if len(paquetsDesordenats) > 0:
             checkDesordenats()
         if (finestra == 0):
-            paquetResposta = IP(dst=font, id1=capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
+            paquetResposta = IP(dst=font, id=capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
             send(paquetResposta)
-            send()
             finestra = 4
 
     print("El missatge rebut codificat es: " + str(missatgeSecret))
