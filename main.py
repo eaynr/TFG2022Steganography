@@ -1,6 +1,7 @@
 from scapy.all import *
 from Cryptodome.Cipher import Salsa20
 import socket
+import base64
 
 def arping2tex(ipdest):
     if len(sys.argv) == 2:
@@ -120,7 +121,7 @@ def capcaleraOkey(cap, capEsp): #Comprovem si la SEQ rebuda es la SEQ esperada
     okey = False
 
     if(cap == capEsp):
-        okey = False
+        okey = True
 
     return okey
 
@@ -230,16 +231,20 @@ def enviarMissatgeControlFinestra(missatgeSecret):
         nonlocal finestra
         nonlocal finestraMax
         nonlocal n_iteracions
+        nonlocal fi
         okey = False
-        desti = "192.168.1.49"
+        font = "192.168.1.43"
 
-        if paquet[IP].dst == desti:
+        if paquet[IP].dst == font:
             part1 = paquet[IP].id
-            offset = part1 + 1
+            offset = part1
             if(offset + finestraMax >= n_iteracions):
                 finestra = n_iteracions - offset
             else:
                 finestra = finestraMax
+
+            if part1 >= 32768:
+                fi = True
 
             okey = True
 
@@ -251,7 +256,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
     bytesPerDatagrama = 4
     n = len(missatgeSecret) % bytesPerDatagrama
 
-    finestraMax = 4
+    finestraMax = 2
     finestra = finestraMax
     resposta = False
 
@@ -289,11 +294,11 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             #################
 
             # part1
-            part4 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama:i * bytesPerDatagrama + 2], byteorder='big')
-            part5 = int.from_bytes(missatgeSecret[i * bytesPerDatagrama + 2:i * bytesPerDatagrama + 4], byteorder='big')
+            part4 = int.from_bytes(missatgeSecret[(i+offset) * bytesPerDatagrama:(i+offset) * bytesPerDatagrama + 2], byteorder='big')
+            part5 = int.from_bytes(missatgeSecret[(i+offset) * bytesPerDatagrama + 2:(i+offset) * bytesPerDatagrama + 4], byteorder='big')
 
             paquet = IP(dst=ipDest, id=part1) / ICMP(id=part4, seq=part5)
-
+            send(paquet)
             packetsToSend.append(paquet)
 
             #send(paquet)
@@ -301,17 +306,16 @@ def enviarMissatgeControlFinestra(missatgeSecret):
             finestra = finestra - 1
             i = i + 1
 
-        sendp(packetsToSend)
+        #sendp(packetsToSend)
         #print("Paquets enviats")
 
-        while finestra == 0: #& timeout
-            print("TimeIn")
-            resposta = False
-            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar)#, timeout = 10) #timeout
-            print("TimeOut")
+        while (finestra == 0 and fi != True): #& timeout
+            #print("TimeIn")
+            #resposta = False
+            resposta = sniff(filter="icmp[0]=0 and src {0}".format(ipDest), count=1, prn=analitzar, timeout=5) #timeout
+            #print("TimeOut")
             if(resposta == False):
-                resposta = True #resend
-
+                finestra = finestraMax
 
 def rebreMissatgeControlFinestra():
 
@@ -349,7 +353,7 @@ def rebreMissatgeControlFinestra():
             else:
                 paquetsDesordenats.append(paquet)
 
-            if (finestra == 0):
+            if (finestra == 0 or final):
                 ultimPaquet = paquet
 
             #paquetResposta = IP(dst=font, id = capcalera) / ICMP(type=0, id=paquet[ICMP].id, seq=paquet[ICMP].seq)
@@ -383,7 +387,7 @@ def rebreMissatgeControlFinestra():
                 capcaleraEsp = capcaleraEsp + 1
                 finestra = finestra - 1
 
-                if (finestra == 0):
+                if (finestra == 0 or final):
                     ultimPaquet = paquet
 
                 paquetsDesordenats.remove(paquet)
@@ -393,7 +397,7 @@ def rebreMissatgeControlFinestra():
     final = False
     capcaleraEsp = 0
 
-    maxFinestra = 4
+    maxFinestra = 2
     finestra = maxFinestra
     paquetsDesordenats = []
 
@@ -403,13 +407,15 @@ def rebreMissatgeControlFinestra():
     desti = "192.168.1.49"
 
     while not final:
-        sniff(filter="icmp[0]=8", count=1, prn=analitzar)
+        sniff(filter="icmp[0]=8", count=maxFinestra, prn=analitzar)
         if len(paquetsDesordenats) > 0:
             checkDesordenats()
         if (finestra == 0):
+            if final:
+                capcaleraEsp = capcaleraEsp + 32768
             paquetResposta = IP(dst=font, id=capcaleraEsp) / ICMP(type=0, id=ultimPaquet[ICMP].id, seq=ultimPaquet[ICMP].seq)
             send(paquetResposta)
-            finestra = 4
+            finestra = maxFinestra
 
     print("El missatge rebut codificat es: " + str(missatgeSecret))
     return missatgeSecret
@@ -437,11 +443,13 @@ if __name__ == '__main__':
     #ipsrc = propiaip() ##desmarcar per propia IP
     #print(ipsrc)
 
-    function = menu()
+    #function = menu()
+    function = 5
     if function == 1:
         print("Enviar dades")
 
-        msgSecret = input('Quin missatge vols enviar ? ')
+        #msgSecret = input('Quin missatge vols enviar ? ')
+        msgSecret = "TestEnviamentProvaAmbFinestra"
         missatgeCodificat = encriptar(msgSecret)
         enviarMissatgeControlFinestra(missatgeCodificat)
 
@@ -500,3 +508,23 @@ if __name__ == '__main__':
 
         print("A reveure")
         exit()
+
+    elif function == 5:
+
+        print("Enviar foto")
+        image = open('black-and-white.png', 'rb')
+        image_read = image.read()
+        image_64_encode = base64.encodebytes(image_read)
+
+        missatgeCodificat = encriptar(image_64_encode)
+        enviarMissatgeControlFinestra(missatgeCodificat)
+
+    elif function == 6:
+        print("Rebre foto")
+
+        missatgeRebutCodificat = rebreMissatgeControlFinestra()
+        missatgeRebutDesodificat = desencriptar(missatgeRebutCodificat)
+
+        image_64_decode = base64.decodebytes(missatgeRebutDesodificat)
+        image_result = open('res.png', 'wb')  # create a writable image and write the decoding result
+        image_result.write(image_64_decode)
