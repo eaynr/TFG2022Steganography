@@ -1,7 +1,5 @@
-import os
 from scapy.all import *
 from Cryptodome.Cipher import Salsa20
-import socket
 import base64
 
 #           ESTRUCTURA MISSATGE IP
