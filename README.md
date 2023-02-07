@@ -9,4 +9,4 @@ La programació s'ha realitzat amb Python 3.8
 
 4. Pots executar el programa: ```sudo python3 main.py```
 
-5. Configura els paràmetres adients al punt 5 del menu.
+5. Configura els paràmetres adients al punt 5 del menu. (IPs, contrasenya del xifrador i mida de la finestra)
