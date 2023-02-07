@@ -241,6 +241,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
 
     nonlocal ipTransmissor
     nonlocal ipReceptor
+    nonlocal midaFinestra
 
     ipDest = ipReceptor
     ipFont = ipTransmissor
@@ -248,7 +249,7 @@ def enviarMissatgeControlFinestra(missatgeSecret):
     bytesPerDatagrama = 4
     n = len(missatgeSecret) % bytesPerDatagrama
 
-    finestraMax = 10
+    finestraMax = midaFinestra
     finestra = finestraMax
     resposta = False
     volta = 0
@@ -366,6 +367,7 @@ def rebreMissatgeControlFinestra():
 
     nonlocal ipTransmissor
     nonlocal ipReceptor
+    nonlocal midaFinestra
 
     ipDest = ipReceptor
     ipFont = ipTransmissor
@@ -374,7 +376,7 @@ def rebreMissatgeControlFinestra():
     final = False
     capcaleraEsp = 0
 
-    maxFinestra = 2
+    maxFinestra = midaFinestra
     finestra = maxFinestra
     paquetsDesordenats = []
 
