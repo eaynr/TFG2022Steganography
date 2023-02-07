@@ -1,4 +1,4 @@
-## Inslació
+## Instalació
 La programació s'ha realitzat amb Python 3.8
 
 1. Clona el repositori: ```git clone https://github.com/eaynr/TFG2022Steganography.git``` 
