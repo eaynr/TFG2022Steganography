@@ -123,8 +123,7 @@ def menu():
 
 def encriptar(missatgeSecret):
 
-    nonlocal clauPrivada
-    contrasenya = clauPrivada
+    contrasenya = b'123uabtfg2022123'
 
     bytesPerDatagrama = 4
 
@@ -144,8 +143,7 @@ def encriptar(missatgeSecret):
 
 def encriptarFoto(missatgeSecret):
 
-    nonlocal clauPrivada
-    contrasenya = clauPrivada
+    contrasenya = b'123uabtfg2022123'
 
     bytesPerDatagrama = 4
     print(len(missatgeSecret))
@@ -167,8 +165,7 @@ def encriptarFoto(missatgeSecret):
 
 def desencriptar(missatgeRebut):
 
-    nonlocal clauPrivada
-    contrasenya = clauPrivada
+    contrasenya = b'123uabtfg2022123'
 
     print("----------------DESENCRIPTACIO----------------------")
     soroll = missatgeRebut[:8]
@@ -191,8 +188,7 @@ def desencriptar(missatgeRebut):
 
 def desencriptarFoto(missatgeRebut):
 
-    nonlocal clauPrivada
-    contrasenya = clauPrivada
+    contrasenya = b'123uabtfg2022123'
 
     print("----------------DESENCRIPTACIO----------------------")
     soroll = missatgeRebut[:8]
@@ -239,17 +235,13 @@ def enviarMissatgeControlFinestra(missatgeSecret):
 
         return okey
 
-    nonlocal ipTransmissor
-    nonlocal ipReceptor
-    nonlocal midaFinestra
-
-    ipDest = ipReceptor
-    ipFont = ipTransmissor
+    ipDest = "192.168.1.49"
+    ipFont = "192.168.1.43"
 
     bytesPerDatagrama = 4
     n = len(missatgeSecret) % bytesPerDatagrama
 
-    finestraMax = midaFinestra
+    finestraMax = 10
     finestra = finestraMax
     resposta = False
     volta = 0
@@ -365,18 +357,14 @@ def rebreMissatgeControlFinestra():
 
                 paquetsDesordenats.remove(paquet)
 
-    nonlocal ipTransmissor
-    nonlocal ipReceptor
-    nonlocal midaFinestra
-
-    ipDest = ipReceptor
-    ipFont = ipTransmissor
+    ipDest = "192.168.1.49"
+    ipFont = "192.168.1.43"
 
     missatgeSecret = b""
     final = False
     capcaleraEsp = 0
 
-    maxFinestra = midaFinestra
+    maxFinestra = 10
     finestra = maxFinestra
     paquetsDesordenats = []
 
@@ -407,8 +395,8 @@ def rebreMissatgeOffline():
                 part3 = paquet[ICMP].seq.to_bytes(length=2, byteorder='big')
                 missatgeSecret += part2 + part3
 
-    nonlocal ipTransmissor
-    nonlocal ipReceptor
+    ipTransmissor = "192.168.1.43"
+    ipReceptor = "192.168.1.49"
     missatgeSecret = b""
     sniff(offline='Analitzar.pcap', prn=analitzar)
 
@@ -421,7 +409,7 @@ if __name__ == '__main__':
     ipTransmissor = "192.168.1.43"
     ipReceptor = "192.168.1.49"
     clauPrivada = b'123uabtfg2022123'
-    midaFinestra = 1
+    midaFinestra = 10
 
     while execucio:
         function = menu()
